@@ -1,4 +1,4 @@
-# JavaCodeKnowledgeGraph.py - Java codebase analyzer that generates comprehensive knowledge graphs optimized for LLM context windows
+# CntxtJV.py - Java codebase analyzer that generates comprehensive knowledge graphs optimized for LLM context windows
 
 import os
 import re
