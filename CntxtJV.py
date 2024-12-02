@@ -244,15 +244,15 @@ class JavaCodeKnowledgeGraph:
         """Process method declarations within a class."""
         method_pattern = (
             r'(@[\w\.\(\)\s,"]+\s+)*'        # Annotations
-            r'(public\s+|protected\s+|private\s+|static\s+|final\s+|abstract\s+|synchronized\s+|native\s+)*'  # Modifiers
-            r'([\w\<\>\[\]]+\s+)'             # Return type
+            r'((?:public|protected|private|static|final|abstract|synchronized|native|strictfp)\s+)*'  # Modifiers
+            r'([\w\<\>\[\]]+[ \t]+)'          # Return type
             r'(\w+)\s*'                       # Method name
             r'\(([^\)]*)\)'                   # Parameters
             r'(?:\s*throws\s+[\w\.,\s]+)?'    # Throws clause
-            r'\s*\{'
+            r'\s*(\{?|;)'                     # Method body start or abstract method ending with ;
         )
 
-        matches = re.finditer(method_pattern, content, re.MULTILINE | re.DOTALL)
+        matches = re.finditer(method_pattern, content, re.MULTILINE)
         for match in matches:
             try:
                 annotations = match.group(1) or ''
@@ -260,6 +260,7 @@ class JavaCodeKnowledgeGraph:
                 return_type = match.group(3).strip()
                 method_name = match.group(4)
                 parameters = match.group(5).strip()
+                method_body_indicator = match.group(6)
 
                 method_node = f"Method: {method_name} ({class_node})"
 
@@ -276,8 +277,36 @@ class JavaCodeKnowledgeGraph:
 
                 self.graph.add_edge(class_node, method_node, relation="HAS_METHOD")
 
+                # **Add return type node and edge**
+                return_type_node = f"Type: {return_type}"
+                if not self.graph.has_node(return_type_node):
+                    self.graph.add_node(return_type_node, type="type", name=return_type)
+                self.graph.add_edge(method_node, return_type_node, relation="RETURNS")
+
+                # **Add parameter nodes and edges**
+                parameters_list = self._parse_parameters(parameters)
+                for param in parameters_list:
+                    param_node = f"Parameter: {param['name']} ({method_node})"
+                    if not self.graph.has_node(param_node):
+                        self.graph.add_node(
+                            param_node,
+                            type="parameter",
+                            name=param['name'],
+                            param_type=param['type'],
+                            annotations=param['annotations']
+                        )
+                    self.graph.add_edge(method_node, param_node, relation="HAS_PARAMETER")
+
+                    # Add parameter type node and edge
+                    param_type_node = f"Type: {param['type']}"
+                    if not self.graph.has_node(param_type_node):
+                        self.graph.add_node(param_type_node, type="type", name=param['type'])
+                    self.graph.add_edge(param_node, param_type_node, relation="OF_TYPE")
+
+                # **End of inserted code**
+
                 # Track method parameters and returns
-                self.method_params[method_node] = self._parse_parameters(parameters)
+                self.method_params[method_node] = parameters_list
                 self.method_returns[method_node] = return_type
 
                 # Track class methods
@@ -288,9 +317,17 @@ class JavaCodeKnowledgeGraph:
                 self.total_methods += 1
 
                 # Process method body if needed (e.g., to find method calls)
+                if method_body_indicator == '{':
+                    method_body_start = match.end()
+                    method_body_end = self._find_matching_brace(content, method_body_start - 1)
+                    if method_body_end != -1:
+                        method_body = content[method_body_start - 1:method_body_end]
+                        # Further processing of method body if needed
 
             except Exception as e:
                 print(f"Error processing method {method_name}: {str(e)}", file=sys.stderr)
+
+
 
     def _process_inner_classes(self, content: str, outer_class_node: str, package_name: Optional[str]):
         """Process inner classes, interfaces, and enums within a class."""
@@ -364,7 +401,7 @@ class JavaCodeKnowledgeGraph:
         return annotations
 
     def _parse_parameters(self, params_str: str) -> List[Dict[str, Any]]:
-        """Parse method parameters including types."""
+        """Parse method parameters including types and add them to the graph."""
         if not params_str:
             return []
 
@@ -393,6 +430,12 @@ class JavaCodeKnowledgeGraph:
             else:
                 param_type = type_and_name[0]
                 param_name = ''
+
+            # **Add parameter type to graph**
+            param_type_node = f"Type: {param_type}"
+            if not self.graph.has_node(param_type_node):
+                self.graph.add_node(param_type_node, type="type", name=param_type)
+            # Edge from parameter to its type can be added if parameters are added as nodes
 
             param_dict = {
                 'name': param_name,
@@ -481,10 +524,11 @@ class JavaCodeKnowledgeGraph:
                 "total_interfaces": self.total_interfaces,
                 "total_enums": self.total_enums,
                 "total_methods": self.total_methods,
-                "total_packages": list(self.total_packages),  # Convert set to list
+                "total_types": sum(1 for n in self.graph.nodes.values() if n.get("type") == "type"),
+                "total_packages": list(self.total_packages),
                 "total_imports": self.total_imports,
-                "total_dependencies": list(self.total_dependencies),  # Convert set to list
-                "total_annotations": list(self.total_annotations),  # Convert set to list
+                "total_dependencies": list(self.total_dependencies),
+                "total_annotations": list(self.total_annotations),
             },
             "method_params": self.method_params,
             "method_returns": self.method_returns,
@@ -509,7 +553,9 @@ class JavaCodeKnowledgeGraph:
                 "method": "#E6E6FA",     # Lavender
                 "import": "#DDA0DD",     # Plum
                 "dependency": "#8A2BE2", # Blue Violet
+                "type": "#FFA07A",       # Light Salmon
             }
+
 
             # Set node colors
             node_colors = [
