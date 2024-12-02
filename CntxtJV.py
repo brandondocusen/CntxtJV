@@ -225,7 +225,7 @@ class JavaCodeKnowledgeGraph:
                     class_body_end = self._find_matching_brace(content, class_body_start - 1)
                     if class_body_end != -1:
                         class_body = content[class_body_start - 1:class_body_end]
-                        self._process_methods(class_body, class_node)
+                        self._process_methods(class_body, class_node, class_name)
                         self._process_inner_classes(class_body, class_node, package_name)
 
                     # Update counts
@@ -240,12 +240,12 @@ class JavaCodeKnowledgeGraph:
                     print(f"Error processing class in file {file_node}: {str(e)}", file=sys.stderr)
                     print(f"Match: {match.group(0)}", file=sys.stderr)
 
-    def _process_methods(self, content: str, class_node: str):
+    def _process_methods(self, content: str, class_node: str, class_name: str):
         """Process method declarations within a class."""
         method_pattern = (
             r'(@[\w\.\(\)\s,"]+\s+)*'        # Annotations
             r'((?:public|protected|private|static|final|abstract|synchronized|native|strictfp)\s+)*'  # Modifiers
-            r'([\w\<\>\[\]]+[ \t]+)'          # Return type
+            r'(?:([\w\<\>\[\]]+[ \t]+))?'    # Return type (optional)
             r'(\w+)\s*'                       # Method name
             r'\(([^\)]*)\)'                   # Parameters
             r'(?:\s*throws\s+[\w\.,\s]+)?'    # Throws clause
@@ -257,10 +257,18 @@ class JavaCodeKnowledgeGraph:
             try:
                 annotations = match.group(1) or ''
                 modifiers = match.group(2) or ''
-                return_type = match.group(3).strip()
+                return_type = match.group(3)
+                if return_type:
+                    return_type = return_type.strip()
+                else:
+                    return_type = None
                 method_name = match.group(4)
                 parameters = match.group(5).strip()
                 method_body_indicator = match.group(6)
+
+                # Check if this is a constructor
+                if not return_type and method_name == class_name:
+                    return_type = "constructor"
 
                 method_node = f"Method: {method_name} ({class_node})"
 
@@ -378,7 +386,7 @@ class JavaCodeKnowledgeGraph:
                     class_body_end = self._find_matching_brace(content, class_body_start - 1)
                     if class_body_end != -1:
                         class_body = content[class_body_start - 1:class_body_end]
-                        self._process_methods(class_body, class_node)
+                        self._process_methods(class_body, class_node, class_name)
                         # Recursively process inner classes
                         self._process_inner_classes(class_body, class_node, package_name)
 
