@@ -46,7 +46,7 @@ It's like handing your LLM the cliff notes instead of a novel.
 git clone https://github.com/brandondocusen/CntxtJV.git
 
 # Navigate to the directory
-cd CntxtJV
+cd CntxtJV-main
 
 # Install required packages
 pip install networkx matplotlib
