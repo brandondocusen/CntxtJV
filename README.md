@@ -49,7 +49,7 @@ git clone https://github.com/brandondocusen/CntxtJV.git
 cd CntxtJV-main
 
 # Install required packages
-pip install networkx matplotlib
+pip install python-magic networkx matplotlib
 
 # Run the analyzer
 python CntxtJV.py
