@@ -301,7 +301,6 @@ class JavaCodeKnowledgeGraph:
         self.graph.add_edge(file_node, import_node, relation="IMPORTS")
         logging.debug(f"Edge added: {file_node} -> {import_node} with relation IMPORTS")
 
-
     def _add_class_node(self, file_node: str, class_name: str, class_type: str):
         """Add a class node to the graph."""
         class_type = class_type.strip().lower()
@@ -366,7 +365,6 @@ class JavaCodeKnowledgeGraph:
             logging.debug(f"Edge added: {class_node} -> {method_node} with relation HAS_METHOD")
         else:
             logging.warning(f"Class node {class_node} does not exist; cannot add method {method_info.name}")
-
 
     def _add_annotation_node(self, file_node: str, annotation: str):
         """Add an annotation node to the graph."""
@@ -721,6 +719,93 @@ class JavaCodeKnowledgeGraph:
         }
         return example_output
 
+    def visualize_graph(self):
+        """Visualize the knowledge graph."""
+        try:
+            import matplotlib.pyplot as plt
+
+            # Create color map for different node types
+            color_map = {
+                "file": "#ADD8E6",           # Light blue
+                "package": "#90EE90",        # Light green
+                "class": "#FFE5B4",          # Peach
+                "interface": "#FFD700",      # Gold
+                "enum": "#FFB6C1",           # Light pink
+                "method": "#E6E6FA",         # Lavender
+                "import": "#DDA0DD",         # Plum
+                "dependency": "#8A2BE2",     # Blue Violet
+                "type": "#FFA07A",           # Light Salmon
+                "annotation": "#FF69B4",     # Hot Pink
+                "comment": "#C0C0C0",        # Silver
+                "log_statement": "#808080",  # Gray
+                "api_integration": "#FFDAB9",# Peach Puff
+                "version": "#00CED1",        # Dark Turquoise
+                "localization": "#40E0D0",   # Turquoise
+                "build_script": "#B0E0E6",   # Powder Blue
+                "documentation": "#F5DEB3",  # Wheat
+                "project": "#98FB98",        # Pale Green
+                "config": "#FFE4B5",         # Moccasin
+            }
+
+            # Set node colors
+            node_colors = [
+                color_map.get(self.graph.nodes[node].get("type", "file"), "lightgray")
+                for node in self.graph.nodes()
+            ]
+
+            # Create figure and axis explicitly
+            fig, ax = plt.subplots(figsize=(20, 15))
+
+            # Calculate layout
+            pos = nx.spring_layout(self.graph, k=1.5, iterations=50)
+
+            # Draw the graph
+            nx.draw(
+                self.graph,
+                pos,
+                ax=ax,
+                with_labels=True,
+                node_color=node_colors,
+                node_size=2000,
+                font_size=8,
+                font_weight="bold",
+                arrows=True,
+                edge_color="gray",
+                arrowsize=20,
+            )
+
+            # Add legend
+            legend_elements = [
+                plt.Line2D(
+                    [0], [0],
+                    marker='o',
+                    color='w',
+                    markerfacecolor=color,
+                    label=node_type.capitalize(),
+                    markersize=10
+                )
+                for node_type, color in color_map.items()
+            ]
+
+            # Place legend outside the plot
+            ax.legend(
+                handles=legend_elements,
+                loc='center left',
+                bbox_to_anchor=(1.05, 0.5),
+                title="Node Types"
+            )
+
+            # Set title
+            ax.set_title("Java Code Knowledge Graph Visualization", pad=20)
+
+            # Adjust layout to accommodate legend
+            plt.subplots_adjust(right=0.85)
+
+            # Show plot
+            plt.show()
+
+        except ImportError:
+            print("Matplotlib is required for visualization. Install it using 'pip install matplotlib'.")
 
 if __name__ == "__main__":
     try:
@@ -739,6 +824,17 @@ if __name__ == "__main__":
 
         # Save the graph
         graph_generator.save_graph(output_file)
+
+        # Optional visualization
+        while True:
+            visualize = input("\nWould you like to visualize the graph? (yes/no): ").strip().lower()
+            if visualize in ["yes", "no"]:
+                break
+            print("Invalid choice. Please enter yes or no.")
+
+        if visualize == "yes":
+            print("\nGenerating visualization...")
+            graph_generator.visualize_graph()
 
     except KeyboardInterrupt:
         print("\nOperation cancelled by user.")
